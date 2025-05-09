@@ -1,8 +1,14 @@
 import sys, os
 import numpy as np
 from PIL import Image, ImageOps
-from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QPushButton
-from PyQt5.QtGui import QPixmap, QPainter, QPen, QImage, QColor
+from PyQt5.QtWidgets import (
+  QApplication, QWidget, QLabel, QPushButton,
+  QGraphicsDropShadowEffect, QShortcut
+)
+from PyQt5.QtGui import (
+  QPixmap, QPainter, QPen, QImage, QColor,
+  QFontDatabase, QFont, QKeySequence
+)
 from PyQt5.QtCore import Qt, QPoint
 from src.predict import predict_digit
 
@@ -39,6 +45,10 @@ class DrawingArea(QLabel):
       elif self.t <= 0.0: self.t, self.forward = 0.0, True
       self.update()
 
+  def mouseReleaseEvent(self, event):
+    if event.button() == Qt.LeftButton:
+      self.parent().classify_digit()
+
   def paintEvent(self, event):
     QPainter(self).drawImage(0, 0, self.canvas)
 
@@ -46,41 +56,120 @@ class DrawingArea(QLabel):
     self.canvas.fill(Qt.transparent)
     self.update()
 
+class OutlinedLabel(QLabel):
+  def __init__(self, text="", parent=None):
+    super().__init__(text, parent)
+    self.outline_color = QColor("#000000")
+    self.text_color = QColor("#bdaecd")
+    self.font_size = 120
+    self.setAttribute(Qt.WA_TranslucentBackground)
+
+  def setOutlineColor(self, color):
+    self.outline_color = QColor(color)
+
+  def setTextColor(self, color):
+    self.text_color = QColor(color)
+
+  def setFontSize(self, size):
+    self.font_size = size
+    self.setFont(QFont(self.font().family(), self.font_size, QFont.Bold))
+
+  def paintEvent(self, event):
+    painter = QPainter(self)
+    painter.setRenderHint(QPainter.Antialiasing)
+    painter.setRenderHint(QPainter.TextAntialiasing)
+    font = self.font()
+    painter.setFont(font)
+    text = self.text()
+    rect = self.rect()
+    pen = QPen(self.outline_color, 4, Qt.SolidLine)
+    painter.setPen(pen)
+    for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+      painter.drawText(rect.translated(dx, dy), Qt.AlignCenter, text)
+    painter.setPen(QPen(self.text_color))
+    painter.drawText(rect, Qt.AlignCenter, text)
+
 class App(QWidget):
   def __init__(self):
     super().__init__()
     self.setWindowTitle("Handwritten Digit Recognition")
     self.setFixedSize(900, 600)
     self.set_background("ui/design.png")
+    font_id = QFontDatabase.addApplicationFont("ui/Perfect-DOS-VGA-437.ttf")
+    if font_id != -1:
+      font_family = QFontDatabase.applicationFontFamilies(font_id)[0]
+      QApplication.setFont(QFont(font_family))
 
     self.drawing_area = DrawingArea(self)
     self.drawing_area.move(80, 159)
 
-    self.prediction_label = QLabel("", self)
-    self.prediction_label.setStyleSheet("color: #5A4FCF; font-size: 40px; font-weight: bold; background: transparent;")
-    self.prediction_label.setAlignment(Qt.AlignCenter)
-    self.prediction_label.setFixedSize(100, 60)
-    self.prediction_label.move(635, 400)
+    def create_shadow(widget):
+      shadow = QGraphicsDropShadowEffect(self)
+      shadow.setBlurRadius(15)
+      shadow.setColor(QColor(0, 0, 0, 160))
+      shadow.setOffset(0, 2)
+      widget.setGraphicsEffect(shadow)
 
-    self.confidence_label = QLabel("", self)
-    self.confidence_label.setStyleSheet("color: #5A4FCF; font-size: 20px; font-weight: bold; background: transparent;")
-    self.confidence_label.setAlignment(Qt.AlignCenter)
-    self.confidence_label.setFixedSize(150, 30)
-    self.confidence_label.move(745, 120)
+    self.prediction_label = OutlinedLabel("", self)
+    self.prediction_label.setFontSize(100)
+    self.prediction_label.setOutlineColor("#6C52E6")
+    self.prediction_label.setTextColor("#B5A7F8")
+    self.prediction_label.setFixedSize(140, 120)
+    self.prediction_label.move(620, 380)
 
-    self.classify_btn = QPushButton("Classify", self)
-    self.classify_btn.move(240, 500)
-    self.classify_btn.clicked.connect(self.classify_digit)
+    self.confidence_label = OutlinedLabel("", self)
+    self.confidence_label.setFontSize(30)
+    self.confidence_label.setOutlineColor("#6C52E6")
+    self.confidence_label.setTextColor("#B5A7F8")
+    self.confidence_label.setFixedSize(200, 50)
+    self.confidence_label.move(725, 115)
 
-    self.clear_btn = QPushButton("Clear", self)
-    self.clear_btn.move(645, 507)
-    self.clear_btn.clicked.connect(self.drawing_area.clear)
+    self.shortcut_hint_label = OutlinedLabel("[C] Clear  [Q] Quit", self)
+    self.shortcut_hint_label.setFont(QFont(self.font().family(), 19, QFont.Bold))
+    self.shortcut_hint_label.setTextColor("#F5E9FD")
+    self.shortcut_hint_label.setOutlineColor("#6C52E6")
+    self.shortcut_hint_label.setFixedSize(300, 30)
+    self.shortcut_hint_label.move(535, 510)
+    create_shadow(self.shortcut_hint_label)
+
+    self.clear_btn = QPushButton("", self)
+    self.clear_btn.setCursor(Qt.PointingHandCursor)
+    self.clear_btn.setFixedSize(128, 128)
+    self.clear_btn.move(220, 450)
+    self.clear_btn.setStyleSheet("""
+      QPushButton {
+        border: none;
+        background-image: url(ui/clear_default.png);
+        background-repeat: no-repeat;
+        background-position: center;
+        background-size: 128px 128px;
+      }
+      QPushButton:hover {
+        background-image: url(ui/clear_hover.png);
+      }
+      QPushButton:pressed {
+        background-image: url(ui/clear_pressed.png);
+      }
+    """)
+    self.clear_btn.clicked.connect(self.clear_all)
+    create_shadow(self.clear_btn)
+
+    clear_shortcut = QShortcut(QKeySequence("C"), self)
+    clear_shortcut.activated.connect(self.clear_all)
+
+    exit_shortcut = QShortcut(QKeySequence("Q"), self)
+    exit_shortcut.activated.connect(self.close)
 
   def set_background(self, path):
     bg = QLabel(self)
     bg.setPixmap(QPixmap(path).scaled(self.width(), self.height(), Qt.KeepAspectRatioByExpanding))
     bg.resize(self.size())
     bg.lower()
+
+  def clear_all(self):
+    self.drawing_area.clear()
+    self.prediction_label.setText("")
+    self.confidence_label.setText("")
 
   def save_input(self, qimg):
     os.makedirs("drawn_digits", exist_ok=True)
