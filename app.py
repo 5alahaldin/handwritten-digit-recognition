@@ -12,10 +12,22 @@ from PyQt5.QtGui import (
 from PyQt5.QtCore import Qt, QPoint
 from src.predict import predict_digit
 
+# Constants for widget sizes, positions, and colors
+WINDOW_WIDTH = 900
+WINDOW_HEIGHT = 600
+DRAWING_AREA_SIZE = (403, 300)
+CLEAR_BTN_SIZE = (124, 60)
+CLEAR_BTN_POSITION = (220, 480)
+PREDICTION_LABEL_POSITION = (620, 380)
+CONFIDENCE_LABEL_POSITION = (725, 115)
+SHORTCUT_HINT_POSITION = (535, 510)
+PRIMARY_COLOR = "#6C52E6"
+SECONDARY_COLOR = "#B5A7F8"
+
 class DrawingArea(QLabel):
   def __init__(self, parent=None):
     super().__init__(parent)
-    self.setFixedSize(403, 300)
+    self.setFixedSize(*DRAWING_AREA_SIZE)
     self.setStyleSheet("background-color: transparent;")
     self.canvas = QImage(self.size(), QImage.Format_ARGB32)
     self.canvas.fill(Qt.transparent)
@@ -93,7 +105,7 @@ class App(QWidget):
   def __init__(self):
     super().__init__()
     self.setWindowTitle("Handwritten Digit Recognition")
-    self.setFixedSize(900, 600)
+    self.setFixedSize(WINDOW_WIDTH, WINDOW_HEIGHT)
     self.set_background("ui/design.png")
     font_id = QFontDatabase.addApplicationFont("ui/Perfect-DOS-VGA-437.ttf")
     if font_id != -1:
@@ -112,37 +124,36 @@ class App(QWidget):
 
     self.prediction_label = OutlinedLabel("", self)
     self.prediction_label.setFontSize(100)
-    self.prediction_label.setOutlineColor("#6C52E6")
-    self.prediction_label.setTextColor("#B5A7F8")
+    self.prediction_label.setOutlineColor(PRIMARY_COLOR)
+    self.prediction_label.setTextColor(SECONDARY_COLOR)
     self.prediction_label.setFixedSize(140, 120)
-    self.prediction_label.move(620, 380)
+    self.prediction_label.move(*PREDICTION_LABEL_POSITION)
 
     self.confidence_label = OutlinedLabel("", self)
     self.confidence_label.setFontSize(30)
-    self.confidence_label.setOutlineColor("#6C52E6")
-    self.confidence_label.setTextColor("#B5A7F8")
+    self.confidence_label.setOutlineColor(PRIMARY_COLOR)
+    self.confidence_label.setTextColor(SECONDARY_COLOR)
     self.confidence_label.setFixedSize(200, 50)
-    self.confidence_label.move(725, 115)
+    self.confidence_label.move(*CONFIDENCE_LABEL_POSITION)
 
     self.shortcut_hint_label = OutlinedLabel("[C] Clear  [Q] Quit", self)
     self.shortcut_hint_label.setFont(QFont(self.font().family(), 19, QFont.Bold))
     self.shortcut_hint_label.setTextColor("#F5E9FD")
-    self.shortcut_hint_label.setOutlineColor("#6C52E6")
+    self.shortcut_hint_label.setOutlineColor(PRIMARY_COLOR)
     self.shortcut_hint_label.setFixedSize(300, 30)
-    self.shortcut_hint_label.move(535, 510)
+    self.shortcut_hint_label.move(*SHORTCUT_HINT_POSITION)
     create_shadow(self.shortcut_hint_label)
 
     self.clear_btn = QPushButton("", self)
     self.clear_btn.setCursor(Qt.PointingHandCursor)
-    self.clear_btn.setFixedSize(128, 128)
-    self.clear_btn.move(220, 450)
+    self.clear_btn.setFixedSize(*CLEAR_BTN_SIZE)
+    self.clear_btn.move(*CLEAR_BTN_POSITION)
     self.clear_btn.setStyleSheet("""
       QPushButton {
         border: none;
         background-image: url(ui/clear_default.png);
         background-repeat: no-repeat;
         background-position: center;
-        background-size: 128px 128px;
       }
       QPushButton:hover {
         background-image: url(ui/clear_hover.png);
@@ -172,15 +183,18 @@ class App(QWidget):
     self.confidence_label.setText("")
 
   def save_input(self, qimg):
-    os.makedirs("drawn_digits", exist_ok=True)
     gray = qimg.convertToFormat(QImage.Format_Grayscale8)
     ptr = gray.bits(); ptr.setsize(gray.byteCount())
     arr = np.frombuffer(ptr, dtype=np.uint8).reshape((gray.height(), gray.bytesPerLine()))[:, :gray.width()]
     img = ImageOps.invert(Image.fromarray(255 - arr).convert("L")).resize((28, 28), Image.Resampling.LANCZOS)
-    path = f"drawn_digits/digit_{len(os.listdir('drawn_digits')) + 1}.png"
-    img.save(path)
-    print(f"[INFO] Image saved to: {path}")
+
+    # os.makedirs("drawn_digits", exist_ok=True)
+    # path = f"drawn_digits/digit_{len(os.listdir('drawn_digits')) + 1}.png"
+    # img.save(path)
+    # print(f"[INFO] Image saved to: {path}")
+
     return img
+
 
   def classify_digit(self):
     image = self.drawing_area.canvas.copy()

@@ -1,3 +1,5 @@
 venv/
 data/train/
 drawn_digits/
+build/
+dist/
