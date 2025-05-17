@@ -187,10 +187,10 @@ class App(QWidget):
     arr = np.frombuffer(ptr, dtype=np.uint8).reshape((gray.height(), gray.bytesPerLine()))[:, :gray.width()]
     img = ImageOps.invert(Image.fromarray(255 - arr).convert("L")).resize((28, 28), Image.Resampling.LANCZOS)
 
-    os.makedirs("drawn_digits", exist_ok=True)
-    path = f"drawn_digits/digit_{len(os.listdir('drawn_digits')) + 1}.png"
-    img.save(path)
-    print(f"[INFO] Image saved to: {path}")
+    # os.makedirs("drawn_digits", exist_ok=True)
+    # path = f"drawn_digits/digit_{len(os.listdir('drawn_digits')) + 1}.png"
+    # img.save(path)
+    # print(f"[INFO] Image saved to: {path}")
 
     return img
 
