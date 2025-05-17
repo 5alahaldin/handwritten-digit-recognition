@@ -3,3 +3,6 @@ data/train/
 drawn_digits/
 build/
 dist/
+models/
+backup/
+__pycache__/
